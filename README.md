@@ -81,12 +81,19 @@ http://localhost:3000
 ## What is in here
 
 ```
-src/                          the app you are building; it is empty on purpose
-  router.tsx                  router setup
-  routes/__root.tsx           the document shell
-  routes/index.tsx            placeholder home page
-functions/personal-account/   the Function, already written
+src/
+  router.tsx                  router + QueryClient setup
+  routes/__root.tsx           document shell, Header, SSR user/account hydrate
+  routes/index.tsx            home
+  routes/sign-in.tsx          email OTP sign-in
+  routes/onboarding.tsx       first/last name + role
+  routes/profile.tsx          view/edit personal account
+  lib/auth.ts                 OTP, session cookie, current user, logout
+  lib/personal-account.ts     Function executions (GET/POST/PATCH)
+  components/header.tsx       Sign in | firstName + Log out
+functions/personal-account/   the Function (unchanged)
 appwrite.config.json          database, table and Function definitions
+NOTES.md                      decisions and disagreements with the brief
 ```
 
 Other scripts:
