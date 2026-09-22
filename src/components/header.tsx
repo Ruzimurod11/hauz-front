@@ -10,6 +10,7 @@ export function Header() {
     const { data: user } = useQuery({
         queryKey: ["currentUser"],
         queryFn: () => getCurrentUserFn(),
+        staleTime: 1000 * 60, // 1 daqiqa keshda saqlaydi
     });
 
     // Logout mutatsiyasi

@@ -4,7 +4,7 @@ import {
     useSearch,
 } from "@tanstack/react-router";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { sendOtpFn, verifyOtpFn } from "../lib/auth";
 
 export const Route = createFileRoute("/sign-in")({
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/sign-in")({
 function SignInPage() {
     const navigate = useNavigate();
     const search = useSearch({ strict: false }) as { redirect?: string };
+    const queryClient = useQueryClient();
 
     const [step, setStep] = useState<"email" | "code">("email");
     const [email, setEmail] = useState("");
@@ -34,7 +35,8 @@ function SignInPage() {
     const verifyOtpMutation = useMutation({
         mutationFn: (data: { userId: string; secret: string }) =>
             verifyOtpFn({ data }),
-        onSuccess: () => {
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
             const redirectTo = search.redirect || "/profile";
             navigate({ to: redirectTo });
         },
