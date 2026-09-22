@@ -11,6 +11,7 @@ import {
     updatePersonalAccountFn,
     type PersonalAccount,
 } from "../lib/personal-account";
+import "../styles/forms.css";
 
 export const Route = createFileRoute("/profile")({
     beforeLoad: async ({ context }) => {
@@ -128,16 +129,9 @@ function ProfilePage() {
     };
 
     return (
-        <div
-            style={{
-                maxWidth: 480,
-                margin: "40px auto",
-                padding: 20,
-                border: "1px solid #ccc",
-            }}
-        >
+        <div className="form-panel form-panel--wide">
             <h2>Profile</h2>
-            <p style={{ color: "#555", fontSize: 14, marginBottom: 16 }}>
+            <p className="form-meta">
                 Role:{" "}
                 <strong>
                     {account.role === "realtor"
@@ -148,7 +142,7 @@ function ProfilePage() {
             </p>
 
             {updateMutation.error && (
-                <div style={{ color: "red", marginBottom: 10 }}>
+                <div className="form-error">
                     {updateMutation.error instanceof Error
                         ? updateMutation.error.message
                         : "Something went wrong"}
@@ -156,64 +150,56 @@ function ProfilePage() {
             )}
 
             {saved && !updateMutation.isPending && (
-                <div style={{ color: "green", marginBottom: 10 }}>Saved.</div>
+                <div className="form-success">Saved.</div>
             )}
 
             <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", marginBottom: 4 }}>
-                        First name
-                    </label>
+                <div className="form-field">
+                    <label className="form-label">First name</label>
                     <input
+                        className="form-input"
                         required
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
-                        style={{ width: "100%", padding: 8 }}
                     />
                 </div>
 
-                <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", marginBottom: 4 }}>
-                        Last name
-                    </label>
+                <div className="form-field">
+                    <label className="form-label">Last name</label>
                     <input
+                        className="form-input"
                         required
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        style={{ width: "100%", padding: 8 }}
                     />
                 </div>
 
-                <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", marginBottom: 4 }}>
-                        Contact email (optional)
-                    </label>
+                <div className="form-field">
+                    <label className="form-label">Contact email (optional)</label>
                     <input
+                        className="form-input"
                         type="email"
                         value={contactEmail}
                         onChange={(e) => setContactEmail(e.target.value)}
                         placeholder="Leave blank to clear"
-                        style={{ width: "100%", padding: 8 }}
                     />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", marginBottom: 4 }}>
-                        Bio (optional)
-                    </label>
+                <div className="form-field form-field--last">
+                    <label className="form-label">Bio (optional)</label>
                     <textarea
+                        className="form-input"
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
                         rows={4}
                         placeholder="Leave blank to clear"
-                        style={{ width: "100%", padding: 8 }}
                     />
                 </div>
 
                 <button
+                    className="form-button"
                     type="submit"
                     disabled={updateMutation.isPending}
-                    style={{ padding: "8px 16px" }}
                 >
                     {updateMutation.isPending ? "Saving..." : "Save"}
                 </button>

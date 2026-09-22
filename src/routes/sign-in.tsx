@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUserFn, sendOtpFn, verifyOtpFn } from "../lib/auth";
 import { getPersonalAccountFn } from "../lib/personal-account";
 import { resolveRedirectPath } from "../lib/redirect";
+import "../styles/forms.css";
 
 type SignInSearch = {
     redirect?: string;
@@ -111,18 +112,11 @@ function SignInPage() {
     const isLoading = sendOtpMutation.isPending || verifyOtpMutation.isPending;
 
     return (
-        <div
-            style={{
-                maxWidth: 400,
-                margin: "40px auto",
-                padding: 20,
-                border: "1px solid #ccc",
-            }}
-        >
+        <div className="form-panel form-panel--narrow">
             <h2>Sign In</h2>
 
             {error && (
-                <div style={{ color: "red", marginBottom: 10 }}>
+                <div className="form-error">
                     {error instanceof Error
                         ? error.message
                         : "Something went wrong"}
@@ -131,23 +125,21 @@ function SignInPage() {
 
             {step === "email" ? (
                 <form onSubmit={handleSendOtp}>
-                    <div style={{ marginBottom: 12 }}>
-                        <label style={{ display: "block", marginBottom: 4 }}>
-                            Email
-                        </label>
+                    <div className="form-field">
+                        <label className="form-label">Email</label>
                         <input
+                            className="form-input"
                             type="email"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="example@hauz.uz"
-                            style={{ width: "100%", padding: 8 }}
                         />
                     </div>
                     <button
+                        className="form-button"
                         type="submit"
                         disabled={isLoading}
-                        style={{ padding: "8px 16px" }}
                     >
                         {sendOtpMutation.isPending
                             ? "Sending..."
@@ -156,43 +148,43 @@ function SignInPage() {
                 </form>
             ) : (
                 <form onSubmit={handleVerifyOtp}>
-                    <p style={{ fontSize: 14, color: "#555" }}>
+                    <p className="form-hint">
                         Enter the 6-digit code sent to <strong>{email}</strong>:
                     </p>
-                    <div style={{ marginBottom: 12 }}>
-                        <label style={{ display: "block", marginBottom: 4 }}>
-                            Code
-                        </label>
+                    <div className="form-field">
+                        <label className="form-label">Code</label>
                         <input
+                            className="form-input"
                             type="text"
                             required
                             value={code}
                             onChange={(e) => setCode(e.target.value)}
                             placeholder="123456"
-                            style={{ width: "100%", padding: 8 }}
                         />
                     </div>
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        style={{ padding: "8px 16px", marginRight: 8 }}
-                    >
-                        {verifyOtpMutation.isPending
-                            ? "Checking..."
-                            : "Continue"}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            sendOtpMutation.reset();
-                            verifyOtpMutation.reset();
-                            setStep("email");
-                        }}
-                        disabled={isLoading}
-                        style={{ padding: "8px 16px" }}
-                    >
-                        Back
-                    </button>
+                    <div className="form-actions">
+                        <button
+                            className="form-button"
+                            type="submit"
+                            disabled={isLoading}
+                        >
+                            {verifyOtpMutation.isPending
+                                ? "Checking..."
+                                : "Continue"}
+                        </button>
+                        <button
+                            className="form-button"
+                            type="button"
+                            onClick={() => {
+                                sendOtpMutation.reset();
+                                verifyOtpMutation.reset();
+                                setStep("email");
+                            }}
+                            disabled={isLoading}
+                        >
+                            Back
+                        </button>
+                    </div>
                 </form>
             )}
         </div>

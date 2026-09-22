@@ -13,6 +13,7 @@ import {
     type PersonalRole,
 } from "../lib/personal-account";
 import { resolveRedirectPath } from "../lib/redirect";
+import "../styles/forms.css";
 
 type OnboardingSearch = {
     redirect?: string;
@@ -88,21 +89,14 @@ function OnboardingPage() {
     };
 
     return (
-        <div
-            style={{
-                maxWidth: 440,
-                margin: "40px auto",
-                padding: 20,
-                border: "1px solid #ccc",
-            }}
-        >
+        <div className="form-panel">
             <h2>Create your account</h2>
-            <p style={{ color: "#555", fontSize: 14 }}>
+            <p className="form-hint">
                 Tell us who you are so we can set up your HAUZ profile.
             </p>
 
             {createMutation.error && (
-                <div style={{ color: "red", marginBottom: 10 }}>
+                <div className="form-error">
                     {createMutation.error instanceof Error
                         ? createMutation.error.message
                         : "Something went wrong"}
@@ -110,33 +104,29 @@ function OnboardingPage() {
             )}
 
             <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", marginBottom: 4 }}>
-                        First name
-                    </label>
+                <div className="form-field">
+                    <label className="form-label">First name</label>
                     <input
+                        className="form-input"
                         required
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
-                        style={{ width: "100%", padding: 8 }}
                     />
                 </div>
 
-                <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", marginBottom: 4 }}>
-                        Last name
-                    </label>
+                <div className="form-field">
+                    <label className="form-label">Last name</label>
                     <input
+                        className="form-input"
                         required
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        style={{ width: "100%", padding: 8 }}
                     />
                 </div>
 
-                <fieldset style={{ marginBottom: 16, border: "none", padding: 0 }}>
-                    <legend style={{ marginBottom: 8 }}>Role</legend>
-                    <label style={{ display: "block", marginBottom: 6 }}>
+                <fieldset className="form-fieldset">
+                    <legend className="form-legend">Role</legend>
+                    <label className="form-radio">
                         <input
                             type="radio"
                             name="role"
@@ -146,7 +136,7 @@ function OnboardingPage() {
                         />{" "}
                         Property Owner
                     </label>
-                    <label style={{ display: "block" }}>
+                    <label className="form-radio">
                         <input
                             type="radio"
                             name="role"
@@ -159,9 +149,9 @@ function OnboardingPage() {
                 </fieldset>
 
                 <button
+                    className="form-button"
                     type="submit"
                     disabled={createMutation.isPending}
-                    style={{ padding: "8px 16px" }}
                 >
                     {createMutation.isPending ? "Saving..." : "Continue"}
                 </button>

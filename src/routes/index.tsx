@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import "../styles/home.css";
 
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
     return (
-        <main style={{ maxWidth: 560, margin: "40px auto", padding: 20 }}>
+        <main className="home">
             <h1>HAUZ</h1>
             <p>
                 Sign in with an email code, finish onboarding if you are new,
