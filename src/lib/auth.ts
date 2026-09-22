@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createAdminClient, createSessionClient } from "./appwrite";
-import { setCookie, getCookie, deleteCookie } from "@tanstack/react-start/server";
+import {
+    setCookie,
+    getCookie,
+    deleteCookie,
+} from "@tanstack/react-start/server";
 import { ID } from "node-appwrite";
 
 const SESSION_COOKIE = "appwrite_session";
@@ -49,3 +53,22 @@ export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(
         }
     },
 );
+
+// 4. Tizimdan chiqish (Logout)
+export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
+    const sessionSecret = getCookie(SESSION_COOKIE);
+
+    if (sessionSecret) {
+        try {
+            const { account } = createSessionClient(sessionSecret);
+            // Appwrite'dan joriy sessiyani o'chiramiz
+            await account.deleteSession("current");
+        } catch {
+            // Xatolik bo'lsa ham cookie'ni o'chirishda davom etamiz
+        }
+    }
+
+    // Cookie'ni o'chiramiz
+    deleteCookie(SESSION_COOKIE);
+    return { success: true };
+});

@@ -1,39 +1,44 @@
-import type { QueryClient } from '@tanstack/react-query'
+import type { QueryClient } from "@tanstack/react-query";
 import {
-  HeadContent,
-  Scripts,
-  createRootRouteWithContext,
-} from '@tanstack/react-router'
+    HeadContent,
+    Scripts,
+    createRootRouteWithContext,
+} from "@tanstack/react-router";
 
-import appCss from '../styles.css?url'
+import appCss from "../styles.css?url";
+import { Header } from "#/components/header";
 
 export interface RouterContext {
-  queryClient: QueryClient
+    queryClient: QueryClient;
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'HAUZ' },
-    ],
-    links: [{ rel: 'stylesheet', href: appCss }],
-  }),
-  shellComponent: RootDocument,
-})
+    head: () => ({
+        meta: [
+            { charSet: "utf-8" },
+            {
+                name: "viewport",
+                content: "width=device-width, initial-scale=1",
+            },
+            { title: "HAUZ" },
+        ],
+        links: [{ rel: "stylesheet", href: appCss }],
+    }),
+    shellComponent: RootDocument,
+});
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        {/* The site header belongs here. See TASK.md. */}
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  )
+    return (
+        <html lang="en">
+            <head>
+                <HeadContent />
+            </head>
+            <body>
+                {/* The site header belongs here. See TASK.md. */}
+                <Header />
+                {children}
+                <Scripts />
+            </body>
+        </html>
+    );
 }
