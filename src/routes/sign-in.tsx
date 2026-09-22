@@ -1,20 +1,53 @@
 import {
     createFileRoute,
+    redirect,
     useNavigate,
     useRouter,
-    useSearch,
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { sendOtpFn, verifyOtpFn } from "../lib/auth";
+import { getCurrentUserFn, sendOtpFn, verifyOtpFn } from "../lib/auth";
+import { getPersonalAccountFn } from "../lib/personal-account";
+import { resolveRedirectPath } from "../lib/redirect";
+
+type SignInSearch = {
+    redirect?: string;
+};
 
 export const Route = createFileRoute("/sign-in")({
+    validateSearch: (search: Record<string, unknown>): SignInSearch => ({
+        redirect:
+            typeof search.redirect === "string" ? search.redirect : undefined,
+    }),
+    beforeLoad: async ({ context, search }) => {
+        const user = await context.queryClient.ensureQueryData({
+            queryKey: ["currentUser"],
+            queryFn: () => getCurrentUserFn(),
+        });
+        if (!user) return;
+
+        // Prefetch so a Function/table outage does not blank this route.
+        await context.queryClient.prefetchQuery({
+            queryKey: ["personalAccount"],
+            queryFn: () => getPersonalAccountFn(),
+        });
+        const account = context.queryClient.getQueryData(["personalAccount"]);
+
+        if (!account) {
+            throw redirect({
+                to: "/onboarding",
+                search: { redirect: search.redirect },
+            });
+        }
+
+        throw redirect({ href: resolveRedirectPath(search.redirect) });
+    },
     component: SignInPage,
 });
 
 function SignInPage() {
     const navigate = useNavigate();
-    const search = useSearch({ strict: false }) as { redirect?: string };
+    const search = Route.useSearch();
     const queryClient = useQueryClient();
     const router = useRouter();
 
@@ -23,7 +56,6 @@ function SignInPage() {
     const [userId, setUserId] = useState("");
     const [code, setCode] = useState("");
 
-    // 1. Мутация для отправки OTP
     const sendOtpMutation = useMutation({
         mutationFn: (emailInput: string) =>
             sendOtpFn({ data: { email: emailInput } }),
@@ -33,15 +65,35 @@ function SignInPage() {
         },
     });
 
-    // 2. Мутация для проверки OTP
     const verifyOtpMutation = useMutation({
         mutationFn: (data: { userId: string; secret: string }) =>
             verifyOtpFn({ data }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+
+            const redirectTo = resolveRedirectPath(search.redirect);
+
+            // OTP session is already set. Personal-account lookup can fail if
+            // the Function/table is not deployed yet — still leave sign-in.
+            let account = null;
+            try {
+                account = await getPersonalAccountFn();
+                queryClient.setQueryData(["personalAccount"], account);
+            } catch {
+                queryClient.setQueryData(["personalAccount"], null);
+            }
+
             await router.invalidate();
-            const redirectTo = search.redirect || "/profile";
-            navigate({ to: redirectTo });
+
+            if (!account) {
+                void navigate({
+                    to: "/onboarding",
+                    search: { redirect: redirectTo },
+                });
+                return;
+            }
+
+            void navigate({ href: redirectTo });
         },
     });
 
@@ -73,7 +125,7 @@ function SignInPage() {
                 <div style={{ color: "red", marginBottom: 10 }}>
                     {error instanceof Error
                         ? error.message
-                        : "Произошла ошибка"}
+                        : "Something went wrong"}
                 </div>
             )}
 
@@ -81,7 +133,7 @@ function SignInPage() {
                 <form onSubmit={handleSendOtp}>
                     <div style={{ marginBottom: 12 }}>
                         <label style={{ display: "block", marginBottom: 4 }}>
-                            Email manzil:
+                            Email
                         </label>
                         <input
                             type="email"
@@ -98,19 +150,18 @@ function SignInPage() {
                         style={{ padding: "8px 16px" }}
                     >
                         {sendOtpMutation.isPending
-                            ? "Yuborilmoqda..."
-                            : "Kodni olish"}
+                            ? "Sending..."
+                            : "Get code"}
                     </button>
                 </form>
             ) : (
                 <form onSubmit={handleVerifyOtp}>
                     <p style={{ fontSize: 14, color: "#555" }}>
-                        <strong>{email}</strong> manziliga yuborilgan 6 xonali
-                        kodni kiriting:
+                        Enter the 6-digit code sent to <strong>{email}</strong>:
                     </p>
                     <div style={{ marginBottom: 12 }}>
                         <label style={{ display: "block", marginBottom: 4 }}>
-                            Tasdiqlash kodi:
+                            Code
                         </label>
                         <input
                             type="text"
@@ -127,8 +178,8 @@ function SignInPage() {
                         style={{ padding: "8px 16px", marginRight: 8 }}
                     >
                         {verifyOtpMutation.isPending
-                            ? "Tekshirilmoqda..."
-                            : "Kirish"}
+                            ? "Checking..."
+                            : "Continue"}
                     </button>
                     <button
                         type="button"
@@ -140,7 +191,7 @@ function SignInPage() {
                         disabled={isLoading}
                         style={{ padding: "8px 16px" }}
                     >
-                        Orqaga
+                        Back
                     </button>
                 </form>
             )}

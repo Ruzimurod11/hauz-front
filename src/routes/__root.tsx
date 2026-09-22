@@ -8,6 +8,7 @@ import {
 import appCss from "../styles.css?url";
 import { Header } from "#/components/header";
 import { getCurrentUserFn } from "#/lib/auth";
+import { getPersonalAccountFn } from "#/lib/personal-account";
 
 export interface RouterContext {
     queryClient: QueryClient;
@@ -15,10 +16,22 @@ export interface RouterContext {
 
 export const Route = createRootRouteWithContext<RouterContext>()({
     loader: async ({ context }) => {
-        return await context.queryClient.query({
+        const user = await context.queryClient.ensureQueryData({
             queryKey: ["currentUser"],
             queryFn: () => getCurrentUserFn(),
         });
+
+        if (user) {
+            // Prefetch without throwing so a missing Function does not blank the whole app.
+            await context.queryClient.prefetchQuery({
+                queryKey: ["personalAccount"],
+                queryFn: () => getPersonalAccountFn(),
+            });
+        } else {
+            context.queryClient.setQueryData(["personalAccount"], null);
+        }
+
+        return { user };
     },
 
     head: () => ({
@@ -42,7 +55,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 <HeadContent />
             </head>
             <body>
-                {/* The site header belongs here. See TASK.md. */}
                 <Header />
                 {children}
                 <Scripts />

@@ -1,16 +1,20 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/')({ component: Home })
+export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
-  return (
-    <main>
-      <h1>HAUZ</h1>
-      <p>
-        Nothing is built yet. Read <code>TASK.md</code> for what to build and{' '}
-        <code>README.md</code> for how to connect this to your own Appwrite
-        project.
-      </p>
-    </main>
-  )
+    return (
+        <main style={{ maxWidth: 560, margin: "40px auto", padding: 20 }}>
+            <h1>HAUZ</h1>
+            <p>
+                Sign in with an email code, finish onboarding if you are new,
+                then manage your profile.
+            </p>
+            <p>
+                <Link to="/sign-in">Sign in</Link>
+                {" · "}
+                <Link to="/profile">Profile</Link>
+            </p>
+        </main>
+    );
 }
