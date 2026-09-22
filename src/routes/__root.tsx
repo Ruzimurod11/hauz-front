@@ -7,12 +7,20 @@ import {
 
 import appCss from "../styles.css?url";
 import { Header } from "#/components/header";
+import { getCurrentUserFn } from "#/lib/auth";
 
 export interface RouterContext {
     queryClient: QueryClient;
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+    loader: async ({ context }) => {
+        return await context.queryClient.query({
+            queryKey: ["currentUser"],
+            queryFn: () => getCurrentUserFn(),
+        });
+    },
+
     head: () => ({
         meta: [
             { charSet: "utf-8" },

@@ -1,6 +1,7 @@
 import {
     createFileRoute,
     useNavigate,
+    useRouter,
     useSearch,
 } from "@tanstack/react-router";
 import { useState } from "react";
@@ -15,6 +16,7 @@ function SignInPage() {
     const navigate = useNavigate();
     const search = useSearch({ strict: false }) as { redirect?: string };
     const queryClient = useQueryClient();
+    const router = useRouter();
 
     const [step, setStep] = useState<"email" | "code">("email");
     const [email, setEmail] = useState("");
@@ -37,6 +39,7 @@ function SignInPage() {
             verifyOtpFn({ data }),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+            await router.invalidate();
             const redirectTo = search.redirect || "/profile";
             navigate({ to: redirectTo });
         },
