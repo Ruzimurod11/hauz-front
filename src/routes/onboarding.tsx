@@ -13,6 +13,11 @@ import {
     type PersonalRole,
 } from "../lib/personal-account";
 import { resolveRedirectPath } from "../lib/redirect";
+import {
+    fieldErrorsFromZod,
+    onboardingSchema,
+} from "../lib/validation";
+import { FormTextInput } from "../components/form-text-input";
 import "../styles/forms.css";
 
 type OnboardingSearch = {
@@ -39,7 +44,6 @@ export const Route = createFileRoute("/onboarding")({
             });
         }
 
-        // Cache may already hold null after a failed lookup; do not throw on 500.
         await context.queryClient.prefetchQuery({
             queryKey: ["personalAccount"],
             queryFn: () => getPersonalAccountFn(),
@@ -62,16 +66,16 @@ function OnboardingPage() {
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [role, setRole] = useState<PersonalRole>("property_owner");
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>(
+        {},
+    );
 
     const createMutation = useMutation({
-        mutationFn: () =>
-            createPersonalAccountFn({
-                data: {
-                    firstName: firstName.trim(),
-                    lastName: lastName.trim(),
-                    role,
-                },
-            }),
+        mutationFn: (data: {
+            firstName: string;
+            lastName: string;
+            role: PersonalRole;
+        }) => createPersonalAccountFn({ data }),
         onSuccess: async (account) => {
             queryClient.setQueryData(["personalAccount"], account);
             await queryClient.invalidateQueries({
@@ -82,10 +86,31 @@ function OnboardingPage() {
         },
     });
 
+    const clearFieldError = (key: string) => {
+        setFieldErrors((prev) => {
+            if (!prev[key]) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+    };
+
     const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (createMutation.isPending) return;
-        createMutation.mutate();
+
+        const parsed = onboardingSchema.safeParse({
+            firstName,
+            lastName,
+            role,
+        });
+        if (!parsed.success) {
+            setFieldErrors(fieldErrorsFromZod(parsed.error));
+            return;
+        }
+
+        setFieldErrors({});
+        createMutation.mutate(parsed.data);
     };
 
     return (
@@ -103,25 +128,47 @@ function OnboardingPage() {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit}>
+            <form noValidate onSubmit={handleSubmit}>
                 <div className="form-field">
-                    <label className="form-label">First name</label>
-                    <input
-                        className="form-input"
-                        required
+                    <label className="form-label" htmlFor="onboarding-first-name">
+                        First name
+                    </label>
+                    <FormTextInput
+                        id="onboarding-first-name"
                         value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
+                        invalid={!!fieldErrors.firstName}
+                        onValueChange={(value) => {
+                            setFirstName(value);
+                            clearFieldError("firstName");
+                        }}
+                        autoComplete="given-name"
                     />
+                    {fieldErrors.firstName && (
+                        <p className="form-field-error">
+                            {fieldErrors.firstName}
+                        </p>
+                    )}
                 </div>
 
                 <div className="form-field">
-                    <label className="form-label">Last name</label>
-                    <input
-                        className="form-input"
-                        required
+                    <label className="form-label" htmlFor="onboarding-last-name">
+                        Last name
+                    </label>
+                    <FormTextInput
+                        id="onboarding-last-name"
                         value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
+                        invalid={!!fieldErrors.lastName}
+                        onValueChange={(value) => {
+                            setLastName(value);
+                            clearFieldError("lastName");
+                        }}
+                        autoComplete="family-name"
                     />
+                    {fieldErrors.lastName && (
+                        <p className="form-field-error">
+                            {fieldErrors.lastName}
+                        </p>
+                    )}
                 </div>
 
                 <fieldset className="form-fieldset">
@@ -132,9 +179,12 @@ function OnboardingPage() {
                             name="role"
                             value="property_owner"
                             checked={role === "property_owner"}
-                            onChange={() => setRole("property_owner")}
-                        />{" "}
-                        Property Owner
+                            onChange={() => {
+                                setRole("property_owner");
+                                clearFieldError("role");
+                            }}
+                        />
+                        <span>Property Owner</span>
                     </label>
                     <label className="form-radio">
                         <input
@@ -142,10 +192,16 @@ function OnboardingPage() {
                             name="role"
                             value="realtor"
                             checked={role === "realtor"}
-                            onChange={() => setRole("realtor")}
-                        />{" "}
-                        Realtor
+                            onChange={() => {
+                                setRole("realtor");
+                                clearFieldError("role");
+                            }}
+                        />
+                        <span>Realtor</span>
                     </label>
+                    {fieldErrors.role && (
+                        <p className="form-field-error">{fieldErrors.role}</p>
+                    )}
                 </fieldset>
 
                 <button

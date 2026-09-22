@@ -9,6 +9,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUserFn, sendOtpFn, verifyOtpFn } from "../lib/auth";
 import { getPersonalAccountFn } from "../lib/personal-account";
 import { resolveRedirectPath } from "../lib/redirect";
+import {
+    fieldErrorsFromZod,
+    signInCodeSchema,
+    signInEmailSchema,
+} from "../lib/validation";
+import { FormTextInput } from "../components/form-text-input";
 import "../styles/forms.css";
 
 type SignInSearch = {
@@ -27,7 +33,6 @@ export const Route = createFileRoute("/sign-in")({
         });
         if (!user) return;
 
-        // Prefetch so a Function/table outage does not blank this route.
         await context.queryClient.prefetchQuery({
             queryKey: ["personalAccount"],
             queryFn: () => getPersonalAccountFn(),
@@ -56,6 +61,9 @@ function SignInPage() {
     const [email, setEmail] = useState("");
     const [userId, setUserId] = useState("");
     const [code, setCode] = useState("");
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>(
+        {},
+    );
 
     const sendOtpMutation = useMutation({
         mutationFn: (emailInput: string) =>
@@ -63,6 +71,7 @@ function SignInPage() {
         onSuccess: (res) => {
             setUserId(res.userId);
             setStep("code");
+            setFieldErrors({});
         },
     });
 
@@ -74,8 +83,6 @@ function SignInPage() {
 
             const redirectTo = resolveRedirectPath(search.redirect);
 
-            // OTP session is already set. Personal-account lookup can fail if
-            // the Function/table is not deployed yet — still leave sign-in.
             let account = null;
             try {
                 account = await getPersonalAccountFn();
@@ -100,12 +107,24 @@ function SignInPage() {
 
     const handleSendOtp = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
-        sendOtpMutation.mutate(email);
+        const parsed = signInEmailSchema.safeParse({ email });
+        if (!parsed.success) {
+            setFieldErrors(fieldErrorsFromZod(parsed.error));
+            return;
+        }
+        setFieldErrors({});
+        sendOtpMutation.mutate(parsed.data.email);
     };
 
     const handleVerifyOtp = (e: React.SyntheticEvent) => {
         e.preventDefault();
-        verifyOtpMutation.mutate({ userId, secret: code });
+        const parsed = signInCodeSchema.safeParse({ code });
+        if (!parsed.success) {
+            setFieldErrors(fieldErrorsFromZod(parsed.error));
+            return;
+        }
+        setFieldErrors({});
+        verifyOtpMutation.mutate({ userId, secret: parsed.data.code });
     };
 
     const error = sendOtpMutation.error || verifyOtpMutation.error;
@@ -124,17 +143,34 @@ function SignInPage() {
             )}
 
             {step === "email" ? (
-                <form onSubmit={handleSendOtp}>
+                <form noValidate onSubmit={handleSendOtp}>
                     <div className="form-field">
-                        <label className="form-label">Email</label>
-                        <input
-                            className="form-input"
+                        <label className="form-label" htmlFor="sign-in-email">
+                            Email
+                        </label>
+                        <FormTextInput
+                            id="sign-in-email"
                             type="email"
-                            required
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            invalid={!!fieldErrors.email}
+                            onValueChange={(value) => {
+                                setEmail(value);
+                                if (fieldErrors.email) {
+                                    setFieldErrors((prev) => {
+                                        const next = { ...prev };
+                                        delete next.email;
+                                        return next;
+                                    });
+                                }
+                            }}
                             placeholder="example@hauz.uz"
+                            autoComplete="email"
                         />
+                        {fieldErrors.email && (
+                            <p className="form-field-error">
+                                {fieldErrors.email}
+                            </p>
+                        )}
                     </div>
                     <button
                         className="form-button"
@@ -147,20 +183,38 @@ function SignInPage() {
                     </button>
                 </form>
             ) : (
-                <form onSubmit={handleVerifyOtp}>
+                <form noValidate onSubmit={handleVerifyOtp}>
                     <p className="form-hint">
                         Enter the 6-digit code sent to <strong>{email}</strong>:
                     </p>
                     <div className="form-field">
-                        <label className="form-label">Code</label>
-                        <input
-                            className="form-input"
+                        <label className="form-label" htmlFor="sign-in-code">
+                            Code
+                        </label>
+                        <FormTextInput
+                            id="sign-in-code"
                             type="text"
-                            required
+                            inputMode="numeric"
                             value={code}
-                            onChange={(e) => setCode(e.target.value)}
+                            invalid={!!fieldErrors.code}
+                            onValueChange={(value) => {
+                                setCode(value);
+                                if (fieldErrors.code) {
+                                    setFieldErrors((prev) => {
+                                        const next = { ...prev };
+                                        delete next.code;
+                                        return next;
+                                    });
+                                }
+                            }}
                             placeholder="123456"
+                            autoComplete="one-time-code"
                         />
+                        {fieldErrors.code && (
+                            <p className="form-field-error">
+                                {fieldErrors.code}
+                            </p>
+                        )}
                     </div>
                     <div className="form-actions">
                         <button
@@ -178,6 +232,7 @@ function SignInPage() {
                             onClick={() => {
                                 sendOtpMutation.reset();
                                 verifyOtpMutation.reset();
+                                setFieldErrors({});
                                 setStep("email");
                             }}
                             disabled={isLoading}

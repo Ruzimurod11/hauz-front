@@ -11,6 +11,11 @@ import {
     updatePersonalAccountFn,
     type PersonalAccount,
 } from "../lib/personal-account";
+import {
+    fieldErrorsFromZod,
+    profileSchema,
+} from "../lib/validation";
+import { FormTextInput } from "../components/form-text-input";
 import "../styles/forms.css";
 
 export const Route = createFileRoute("/profile")({
@@ -71,9 +76,17 @@ function ProfilePage() {
     );
     const [bio, setBio] = useState(loaded.bio ?? "");
     const [saved, setSaved] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>(
+        {},
+    );
 
     const updateMutation = useMutation({
-        mutationFn: () => {
+        mutationFn: (values: {
+            firstName: string;
+            lastName: string;
+            contactEmail: string;
+            bio: string;
+        }) => {
             const patch: {
                 firstName?: string;
                 lastName?: string;
@@ -81,24 +94,22 @@ function ProfilePage() {
                 bio?: string | null;
             } = {};
 
-            const nextFirst = firstName.trim();
-            const nextLast = lastName.trim();
-            if (nextFirst && nextFirst !== account.firstName) {
-                patch.firstName = nextFirst;
+            if (values.firstName !== account.firstName) {
+                patch.firstName = values.firstName;
             }
-            if (nextLast && nextLast !== account.lastName) {
-                patch.lastName = nextLast;
+            if (values.lastName !== account.lastName) {
+                patch.lastName = values.lastName;
             }
 
             const emailPatch = optionalFieldForPatch(
                 account.contactEmail,
-                contactEmail,
+                values.contactEmail,
             );
             if (emailPatch !== undefined) {
                 patch.contactEmail = emailPatch;
             }
 
-            const bioPatch = optionalFieldForPatch(account.bio, bio);
+            const bioPatch = optionalFieldForPatch(account.bio, values.bio);
             if (bioPatch !== undefined) {
                 patch.bio = bioPatch;
             }
@@ -121,11 +132,33 @@ function ProfilePage() {
         },
     });
 
+    const clearFieldError = (key: string) => {
+        setFieldErrors((prev) => {
+            if (!prev[key]) return prev;
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+    };
+
     const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         setSaved(false);
         if (updateMutation.isPending) return;
-        updateMutation.mutate();
+
+        const parsed = profileSchema.safeParse({
+            firstName,
+            lastName,
+            contactEmail,
+            bio,
+        });
+        if (!parsed.success) {
+            setFieldErrors(fieldErrorsFromZod(parsed.error));
+            return;
+        }
+
+        setFieldErrors({});
+        updateMutation.mutate(parsed.data);
     };
 
     return (
@@ -153,47 +186,90 @@ function ProfilePage() {
                 <div className="form-success">Saved.</div>
             )}
 
-            <form onSubmit={handleSubmit}>
+            <form noValidate onSubmit={handleSubmit}>
                 <div className="form-field">
-                    <label className="form-label">First name</label>
-                    <input
-                        className="form-input"
-                        required
+                    <label className="form-label" htmlFor="profile-first-name">
+                        First name
+                    </label>
+                    <FormTextInput
+                        id="profile-first-name"
                         value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
+                        invalid={!!fieldErrors.firstName}
+                        onValueChange={(value) => {
+                            setFirstName(value);
+                            clearFieldError("firstName");
+                        }}
+                        autoComplete="given-name"
                     />
+                    {fieldErrors.firstName && (
+                        <p className="form-field-error">
+                            {fieldErrors.firstName}
+                        </p>
+                    )}
                 </div>
 
                 <div className="form-field">
-                    <label className="form-label">Last name</label>
-                    <input
-                        className="form-input"
-                        required
+                    <label className="form-label" htmlFor="profile-last-name">
+                        Last name
+                    </label>
+                    <FormTextInput
+                        id="profile-last-name"
                         value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
+                        invalid={!!fieldErrors.lastName}
+                        onValueChange={(value) => {
+                            setLastName(value);
+                            clearFieldError("lastName");
+                        }}
+                        autoComplete="family-name"
                     />
+                    {fieldErrors.lastName && (
+                        <p className="form-field-error">
+                            {fieldErrors.lastName}
+                        </p>
+                    )}
                 </div>
 
                 <div className="form-field">
-                    <label className="form-label">Contact email (optional)</label>
-                    <input
-                        className="form-input"
+                    <label className="form-label" htmlFor="profile-contact-email">
+                        Contact email (optional)
+                    </label>
+                    <FormTextInput
+                        id="profile-contact-email"
                         type="email"
                         value={contactEmail}
-                        onChange={(e) => setContactEmail(e.target.value)}
+                        invalid={!!fieldErrors.contactEmail}
+                        onValueChange={(value) => {
+                            setContactEmail(value);
+                            clearFieldError("contactEmail");
+                        }}
                         placeholder="Leave blank to clear"
+                        autoComplete="email"
                     />
+                    {fieldErrors.contactEmail && (
+                        <p className="form-field-error">
+                            {fieldErrors.contactEmail}
+                        </p>
+                    )}
                 </div>
 
                 <div className="form-field form-field--last">
-                    <label className="form-label">Bio (optional)</label>
+                    <label className="form-label" htmlFor="profile-bio">
+                        Bio (optional)
+                    </label>
                     <textarea
-                        className="form-input"
+                        id="profile-bio"
+                        className={`form-input${fieldErrors.bio ? " form-input--invalid" : ""}`}
                         value={bio}
-                        onChange={(e) => setBio(e.target.value)}
+                        onChange={(e) => {
+                            setBio(e.target.value);
+                            clearFieldError("bio");
+                        }}
                         rows={4}
                         placeholder="Leave blank to clear"
                     />
+                    {fieldErrors.bio && (
+                        <p className="form-field-error">{fieldErrors.bio}</p>
+                    )}
                 </div>
 
                 <button
