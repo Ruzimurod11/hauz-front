@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { AppwriteException, ExecutionMethod } from "node-appwrite";
 import { createSessionClient } from "./appwrite";
+import { createAccountInput, updateAccountInput } from "./validation";
 
 const SESSION_COOKIE = "appwrite_session";
 const FUNCTION_PATH = "/personal-account";
@@ -51,27 +52,38 @@ function parseBody(responseBody: string): unknown {
     }
 }
 
+const UNAVAILABLE = "Something went wrong on our side. Please try again.";
+
+/** What the person sees. Function details only go to the server log. */
+function userMessage(status: number, code: string | undefined): string {
+    if (status === 401) return "Your session has ended. Please sign in again.";
+    if (code === "personal_account_inconsistent") {
+        return "You already have an account with a different role.";
+    }
+    if (status === 404) return "Finish creating your account first.";
+    if (code === "invalid_request") {
+        return "Some fields are not valid. Check them and try again.";
+    }
+    return UNAVAILABLE;
+}
+
 function errorFromBody(status: number, parsed: unknown): Error {
     const body = parsed as FunctionErrorBody | null;
-    let message =
-        body?.message ??
-        (status === 401
-            ? "No authenticated principal."
-            : "Personal account request failed.");
+    const code = body?.error;
 
-    // Function returns this when TablesDB throws (usually missing DB/table).
-    if (
-        body?.error === "internal_error" ||
-        message === "Unexpected failure."
-    ) {
-        message =
-            "Personal account storage is not ready (missing Appwrite database/table `main` / `personal_accounts`). Create it in the Console or run `npm run appwrite:push` after CLI login.";
+    if (status >= 500 || code === undefined) {
+        console.error(
+            `[personal-account] Function answered ${status}:`,
+            body ?? "(no body)",
+        );
     }
 
-    const error = new Error(message);
-    (error as Error & { status?: number; code?: string }).status = status;
-    (error as Error & { status?: number; code?: string }).code =
-        body?.error ?? "internal_error";
+    const error = new Error(userMessage(status, code)) as Error & {
+        status?: number;
+        code?: string;
+    };
+    error.status = status;
+    error.code = code ?? "internal_error";
     return error;
 }
 
@@ -103,20 +115,15 @@ async function execute(
                     : { "Content-Type": "application/json" },
         });
     } catch (err) {
-        if (err instanceof AppwriteException) {
-            if (
-                err.type === "function_not_found" ||
-                /function with the requested id could not be found/i.test(
-                    err.message,
-                )
-            ) {
-                throw new Error(
-                    `Appwrite Function "${functionId()}" is not deployed. Run: npx appwrite login && npm run appwrite:push`,
-                );
-            }
-            throw new Error(err.message);
-        }
-        throw err;
+        // Most often the Function is not deployed or APPWRITE_FUNCTION_ID is
+        // wrong; the log says which, the person gets a plain message.
+        console.error(
+            `[personal-account] Could not execute Function "${functionId()}":`,
+            err instanceof AppwriteException
+                ? `${err.code} ${err.type}: ${err.message}`
+                : err,
+        );
+        throw new Error(UNAVAILABLE);
     }
 
     return {
@@ -144,7 +151,7 @@ export const getPersonalAccountFn = createServerFn({ method: "GET" }).handler(
 
 /** POST /personal-account — create (or idempotent 200 if it already exists). */
 export const createPersonalAccountFn = createServerFn({ method: "POST" })
-    .validator((data: CreatePersonalAccountInput) => data)
+    .validator(createAccountInput)
     .handler(async ({ data }) => {
         const { status, data: body } = await execute(ExecutionMethod.POST, {
             firstName: data.firstName,
@@ -165,7 +172,7 @@ export const createPersonalAccountFn = createServerFn({ method: "POST" })
  * Caller identity comes from the session, not the body.
  */
 export const updatePersonalAccountFn = createServerFn({ method: "POST" })
-    .validator((data: UpdatePersonalAccountInput) => data)
+    .validator(updateAccountInput)
     .handler(async ({ data }) => {
         const { status, data: body } = await execute(
             ExecutionMethod.PATCH,

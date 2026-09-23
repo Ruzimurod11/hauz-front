@@ -56,6 +56,41 @@ export const profileSchema = z.object({
         .max(2000, "Bio must be at most 2000 characters."),
 });
 
+/*
+ * Server function inputs. The form schemas above only shape the UI; a server
+ * function is a public endpoint and must check whatever it is sent.
+ */
+
+export const sendOtpInput = z.object({
+    email: z.string().trim().max(254).pipe(z.email()),
+});
+
+export const verifyOtpInput = z.object({
+    // Appwrite user IDs: up to 36 characters of a-z, A-Z, 0-9, ".", "-", "_".
+    userId: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/),
+    secret: z.string().regex(/^\d{6}$/),
+});
+
+export const createAccountInput = onboardingSchema;
+
+export const updateAccountInput = z
+    .object({
+        firstName: z.string().trim().min(1).max(100).optional(),
+        lastName: z.string().trim().min(1).max(100).optional(),
+        contactEmail: z
+            .string()
+            .trim()
+            .max(254)
+            .pipe(z.email())
+            .nullable()
+            .optional(),
+        bio: z.string().trim().min(1).max(2000).nullable().optional(),
+    })
+    .strict()
+    .refine((patch) => Object.keys(patch).length > 0, {
+        message: "Nothing to update.",
+    });
+
 /** First Zod message per top-level field. */
 export function fieldErrorsFromZod(
     error: z.ZodError,

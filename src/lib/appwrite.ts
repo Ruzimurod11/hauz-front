@@ -1,6 +1,6 @@
 import { Client, Account, Functions } from "node-appwrite";
 
-// Server uchun Appwrite Client (Secret va API Key faqat serverda ishlaydi)
+/** Server only: authenticated with the API key, used for OTP sign-in. */
 export function createAdminClient() {
     const client = new Client()
         .setEndpoint(process.env.APPWRITE_ENDPOINT!)
@@ -13,7 +13,7 @@ export function createAdminClient() {
     };
 }
 
-// Cookie'dagi session bo'yicha sorov yuboruvchi Client
+/** Server only: acts as the person whose session secret is in the cookie. */
 export function createSessionClient(sessionSecret?: string) {
     const client = new Client()
         .setEndpoint(process.env.APPWRITE_ENDPOINT!)

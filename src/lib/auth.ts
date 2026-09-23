@@ -6,28 +6,29 @@ import {
     deleteCookie,
 } from "@tanstack/react-start/server";
 import { ID } from "node-appwrite";
+import { sendOtpInput, verifyOtpInput } from "./validation";
 
 const SESSION_COOKIE = "appwrite_session";
 
-// 1. Emailga OTP kod yuborish
+/** Emails a sign-in code. New and returning people go through the same call. */
 export const sendOtpFn = createServerFn({ method: "POST" })
-    .validator((data: { email: string }) => data)
+    .validator(sendOtpInput)
     .handler(async ({ data }) => {
         const { account } = createAdminClient();
         const token = await account.createEmailToken(ID.unique(), data.email);
         return { userId: token.userId };
     });
 
-// 2. Kiritilgan OTP kodni tekshirish va Session yaratish
+/** Exchanges the code for a session and stores only its secret. */
 export const verifyOtpFn = createServerFn({ method: "POST" })
-    .validator((data: { userId: string; secret: string }) => data)
+    .validator(verifyOtpInput)
     .handler(async ({ data }) => {
         const { account } = createAdminClient();
         const session = await account.createSession(data.userId, data.secret);
 
-        // Session secret'ni xavfsiz HTTP-only Cookie'ga saqlaymiz
-        // Without an expiry the browser treats this as a session cookie and may
-        // drop it on restart or resume, even though the Appwrite session lives on.
+        // HTTP-only, so browser JavaScript can never read the secret. Without
+        // an expiry the browser treats this as a session cookie and may drop
+        // it on restart or resume, even though the Appwrite session lives on.
         setCookie(SESSION_COOKIE, session.secret, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
@@ -39,7 +40,7 @@ export const verifyOtpFn = createServerFn({ method: "POST" })
         return { success: true };
     });
 
-// 3. Joriy foydalanuvchini olish
+/** The signed-in Appwrite user, or null. */
 export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(
     async () => {
         const sessionSecret = getCookie(SESSION_COOKIE);
@@ -59,21 +60,20 @@ export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(
     },
 );
 
-// 4. Tizimdan chiqish (Logout)
 export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
     const sessionSecret = getCookie(SESSION_COOKIE);
 
     if (sessionSecret) {
         try {
             const { account } = createSessionClient(sessionSecret);
-            // Appwrite'dan joriy sessiyani o'chiramiz
             await account.deleteSession("current");
-        } catch {
-            // Xatolik bo'lsa ham cookie'ni o'chirishda davom etamiz
+        } catch (error) {
+            // The cookie is cleared either way, so the person is signed out
+            // here even if Appwrite could not end the session.
+            console.error("[auth] Could not delete the session:", error);
         }
     }
 
-    // Cookie'ni o'chiramiz
     deleteCookie(SESSION_COOKIE);
     return { success: true };
 });
