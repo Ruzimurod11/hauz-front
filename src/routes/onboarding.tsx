@@ -4,7 +4,7 @@ import {
     useNavigate,
     useRouter,
 } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { loadCurrentUser } from "../lib/current-user";
 import {
@@ -65,6 +65,7 @@ function OnboardingPage() {
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [role, setRole] = useState<PersonalRole>("property_owner");
+    const submitInFlight = useRef(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>(
         {},
     );
@@ -96,7 +97,9 @@ function OnboardingPage() {
 
     const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (createMutation.isPending) return;
+        // isPending only reaches the button on the next render, so a fast
+        // second click would otherwise send a second POST.
+        if (submitInFlight.current) return;
 
         const parsed = onboardingSchema.safeParse({
             firstName,
@@ -109,7 +112,12 @@ function OnboardingPage() {
         }
 
         setFieldErrors({});
-        createMutation.mutate(parsed.data);
+        submitInFlight.current = true;
+        createMutation.mutate(parsed.data, {
+            onSettled: () => {
+                submitInFlight.current = false;
+            },
+        });
     };
 
     return (
