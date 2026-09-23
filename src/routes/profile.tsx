@@ -54,8 +54,6 @@ function optionalFieldForPatch(
     return trimmed;
 }
 
-const MIN_SAVING_MS = 1000;
-
 function ProfilePage() {
     const { account: loaded } = Route.useRouteContext();
     const queryClient = useQueryClient();
@@ -110,17 +108,11 @@ function ProfilePage() {
                 patch.bio = bioPatch;
             }
 
-            const request =
-                Object.keys(patch).length === 0
-                    ? Promise.resolve(account)
-                    : updatePersonalAccountFn({ data: patch });
+            if (Object.keys(patch).length === 0) {
+                return Promise.resolve(account);
+            }
 
-            // Keep "Saving..." on screen long enough to notice, even when the
-            // PATCH answers in a few hundred milliseconds.
-            return Promise.all([
-                request,
-                new Promise((resolve) => setTimeout(resolve, MIN_SAVING_MS)),
-            ]).then(([next]) => next);
+            return updatePersonalAccountFn({ data: patch });
         },
         onSuccess: async (next: PersonalAccount) => {
             setAccount(next);
