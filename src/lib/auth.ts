@@ -26,11 +26,14 @@ export const verifyOtpFn = createServerFn({ method: "POST" })
         const session = await account.createSession(data.userId, data.secret);
 
         // Session secret'ni xavfsiz HTTP-only Cookie'ga saqlaymiz
+        // Without an expiry the browser treats this as a session cookie and may
+        // drop it on restart or resume, even though the Appwrite session lives on.
         setCookie(SESSION_COOKIE, session.secret, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             path: "/",
+            expires: new Date(session.expire),
         });
 
         return { success: true };
@@ -47,7 +50,9 @@ export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(
             const user = await account.get();
             return user;
         } catch (error) {
-            // Xatolik bo'lsa (masalan sessiya eskirgan) cookie'ni o'chiramiz
+            // Any failure loading the user ends the session. A later request
+            // must not reuse a cookie we could not verify.
+            console.error("[auth] Could not load the current user:", error);
             deleteCookie(SESSION_COOKIE);
             return null;
         }

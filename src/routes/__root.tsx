@@ -7,7 +7,7 @@ import {
 
 import appCss from "../styles.css?url";
 import { Header } from "#/components/header";
-import { getCurrentUserFn } from "#/lib/auth";
+import { loadCurrentUser } from "#/lib/current-user";
 import { getPersonalAccountFn } from "#/lib/personal-account";
 
 export interface RouterContext {
@@ -16,17 +16,16 @@ export interface RouterContext {
 
 export const Route = createRootRouteWithContext<RouterContext>()({
     loader: async ({ context }) => {
-        const user = await context.queryClient.ensureQueryData({
-            queryKey: ["currentUser"],
-            queryFn: () => getCurrentUserFn(),
-        });
+        const user = await loadCurrentUser(context.queryClient);
 
         if (user) {
             // Prefetch without throwing so a missing Function does not blank the whole app.
-            await context.queryClient.prefetchQuery({
-                queryKey: ["personalAccount"],
-                queryFn: () => getPersonalAccountFn(),
-            });
+            await context.queryClient
+                .query({
+                    queryKey: ["personalAccount"],
+                    queryFn: () => getPersonalAccountFn(),
+                })
+                .catch(() => {});
         } else {
             context.queryClient.setQueryData(["personalAccount"], null);
         }

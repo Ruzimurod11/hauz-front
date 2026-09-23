@@ -6,7 +6,8 @@ import {
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCurrentUserFn, sendOtpFn, verifyOtpFn } from "../lib/auth";
+import { sendOtpFn, verifyOtpFn } from "../lib/auth";
+import { loadCurrentUser } from "../lib/current-user";
 import { getPersonalAccountFn } from "../lib/personal-account";
 import { resolveRedirectPath } from "../lib/redirect";
 import {
@@ -27,16 +28,15 @@ export const Route = createFileRoute("/sign-in")({
             typeof search.redirect === "string" ? search.redirect : undefined,
     }),
     beforeLoad: async ({ context, search }) => {
-        const user = await context.queryClient.ensureQueryData({
-            queryKey: ["currentUser"],
-            queryFn: () => getCurrentUserFn(),
-        });
+        const user = await loadCurrentUser(context.queryClient);
         if (!user) return;
 
-        await context.queryClient.prefetchQuery({
-            queryKey: ["personalAccount"],
-            queryFn: () => getPersonalAccountFn(),
-        });
+        await context.queryClient
+            .query({
+                queryKey: ["personalAccount"],
+                queryFn: () => getPersonalAccountFn(),
+            })
+            .catch(() => {});
         const account = context.queryClient.getQueryData(["personalAccount"]);
 
         if (!account) {

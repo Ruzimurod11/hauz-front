@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCurrentUserFn, logoutFn } from "../lib/auth";
+import { logoutFn } from "../lib/auth";
+import { currentUserQuery } from "../lib/current-user";
 import { getPersonalAccountFn } from "../lib/personal-account";
 import "./Header.css";
 
@@ -10,8 +11,7 @@ export function Header() {
     const queryClient = useQueryClient();
 
     const { data: user } = useQuery({
-        queryKey: ["currentUser"],
-        queryFn: () => getCurrentUserFn(),
+        ...currentUserQuery,
         staleTime: 1000 * 60,
     });
 

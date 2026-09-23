@@ -1,29 +1,19 @@
-import {
-    createFileRoute,
-    redirect,
-    useRouter,
-} from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCurrentUserFn } from "../lib/auth";
+import { loadCurrentUser } from "../lib/current-user";
 import {
     getPersonalAccountFn,
     updatePersonalAccountFn,
     type PersonalAccount,
 } from "../lib/personal-account";
-import {
-    fieldErrorsFromZod,
-    profileSchema,
-} from "../lib/validation";
+import { fieldErrorsFromZod, profileSchema } from "../lib/validation";
 import { FormTextInput } from "../components/form-text-input";
 import "../styles/forms.css";
 
 export const Route = createFileRoute("/profile")({
     beforeLoad: async ({ context }) => {
-        const user = await context.queryClient.ensureQueryData({
-            queryKey: ["currentUser"],
-            queryFn: () => getCurrentUserFn(),
-        });
+        const user = await loadCurrentUser(context.queryClient);
 
         if (!user) {
             throw redirect({
@@ -32,9 +22,10 @@ export const Route = createFileRoute("/profile")({
             });
         }
 
-        const account = await context.queryClient.ensureQueryData({
+        const account = await context.queryClient.query({
             queryKey: ["personalAccount"],
             queryFn: () => getPersonalAccountFn(),
+            staleTime: "static",
         });
 
         if (!account) {
@@ -63,6 +54,8 @@ function optionalFieldForPatch(
     return trimmed;
 }
 
+const MIN_SAVING_MS = 1000;
+
 function ProfilePage() {
     const { account: loaded } = Route.useRouteContext();
     const queryClient = useQueryClient();
@@ -71,14 +64,17 @@ function ProfilePage() {
     const [account, setAccount] = useState<PersonalAccount>(loaded);
     const [firstName, setFirstName] = useState(loaded.firstName);
     const [lastName, setLastName] = useState(loaded.lastName);
-    const [contactEmail, setContactEmail] = useState(
-        loaded.contactEmail ?? "",
-    );
+    const [contactEmail, setContactEmail] = useState(loaded.contactEmail ?? "");
     const [bio, setBio] = useState(loaded.bio ?? "");
     const [saved, setSaved] = useState(false);
-    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>(
-        {},
-    );
+    const saveInFlight = useRef(false);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        if (!saved) return;
+        const timer = window.setTimeout(() => setSaved(false), 2000);
+        return () => window.clearTimeout(timer);
+    }, [saved]);
 
     const updateMutation = useMutation({
         mutationFn: (values: {
@@ -86,7 +82,7 @@ function ProfilePage() {
             lastName: string;
             contactEmail: string;
             bio: string;
-        }) => {
+        }): Promise<PersonalAccount> => {
             const patch: {
                 firstName?: string;
                 lastName?: string;
@@ -114,11 +110,17 @@ function ProfilePage() {
                 patch.bio = bioPatch;
             }
 
-            if (Object.keys(patch).length === 0) {
-                return Promise.resolve(account);
-            }
+            const request =
+                Object.keys(patch).length === 0
+                    ? Promise.resolve(account)
+                    : updatePersonalAccountFn({ data: patch });
 
-            return updatePersonalAccountFn({ data: patch });
+            // Keep "Saving..." on screen long enough to notice, even when the
+            // PATCH answers in a few hundred milliseconds.
+            return Promise.all([
+                request,
+                new Promise((resolve) => setTimeout(resolve, MIN_SAVING_MS)),
+            ]).then(([next]) => next);
         },
         onSuccess: async (next: PersonalAccount) => {
             setAccount(next);
@@ -143,8 +145,11 @@ function ProfilePage() {
 
     const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
+        // isPending only reaches the button on the next render, so a fast
+        // second click would otherwise send a second PATCH.
+        if (saveInFlight.current) return;
+
         setSaved(false);
-        if (updateMutation.isPending) return;
 
         const parsed = profileSchema.safeParse({
             firstName,
@@ -158,7 +163,12 @@ function ProfilePage() {
         }
 
         setFieldErrors({});
-        updateMutation.mutate(parsed.data);
+        saveInFlight.current = true;
+        updateMutation.mutate(parsed.data, {
+            onSettled: () => {
+                saveInFlight.current = false;
+            },
+        });
     };
 
     return (
@@ -167,9 +177,7 @@ function ProfilePage() {
             <p className="form-meta">
                 Role:{" "}
                 <strong>
-                    {account.role === "realtor"
-                        ? "Realtor"
-                        : "Property Owner"}
+                    {account.role === "realtor" ? "Realtor" : "Property Owner"}
                 </strong>{" "}
                 (cannot be changed)
             </p>
@@ -230,7 +238,10 @@ function ProfilePage() {
                 </div>
 
                 <div className="form-field">
-                    <label className="form-label" htmlFor="profile-contact-email">
+                    <label
+                        className="form-label"
+                        htmlFor="profile-contact-email"
+                    >
                         Contact email (optional)
                     </label>
                     <FormTextInput
