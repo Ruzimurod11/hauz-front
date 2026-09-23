@@ -6,6 +6,8 @@
 
 **Personal Account only through the Function.** The app calls `functions.createExecution` with the caller's session, so Appwrite sets `x-appwrite-user-id`. It never touches `personal_accounts` directly.
 
+**Layers.** Server functions in `lib/auth.ts` and `lib/personal-account.ts` are the API; there is no HTTP client, because nothing calls Appwrite from the browser. `lib/queries.ts` owns the query keys, `lib/guards.ts` the `beforeLoad` redirects, and `hooks/` the mutations with their cache updates and navigation. Pages keep only form state and markup.
+
 **Routing.** After OTP we GET the account: 404 goes to `/onboarding` (keeping `redirect`), otherwise to `redirect` or `/profile`. A guest opening `/profile` goes to `/sign-in?redirect=/profile`.
 
 **Header first paint.** The root loader loads the user and account into the Query cache on the server, so a hard refresh renders the first name with no "Sign in" flash.
@@ -33,7 +35,6 @@ CLI 27.3.0 still creates and deletes columns through the legacy `collections` en
 ## If this went to production
 
 - Delete the cookie only on a real 401, so a network blip after a laptop wakes does not sign people out.
-- One shared auth and account guard instead of repeating `beforeLoad` in each route.
 - Map the Function's `issues` onto form fields.
 - `__Host-` cookie prefix, CSRF protection for cookie-authenticated mutations, shorter sessions with refresh.
 - Rate-limit OTP sends and add a resend cooldown.

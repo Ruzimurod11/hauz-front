@@ -1,63 +1,27 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { loadCurrentUser } from "../lib/current-user";
-import {
-    getPersonalAccountFn,
-    updatePersonalAccountFn,
-    type PersonalAccount,
-} from "../lib/personal-account";
+import { useUpdateProfile } from "../hooks/use-update-profile";
+import { requireAccount } from "../lib/guards";
+import type { PersonalAccount } from "../lib/personal-account";
+import { buildProfilePatch } from "../lib/profile-patch";
 import { fieldErrorsFromZod, profileSchema } from "../lib/validation";
 import { FormTextInput } from "../components/form-text-input";
 import "../styles/forms.css";
 
 export const Route = createFileRoute("/profile")({
     beforeLoad: async ({ context }) => {
-        const user = await loadCurrentUser(context.queryClient);
-
-        if (!user) {
-            throw redirect({
-                to: "/sign-in",
-                search: { redirect: "/profile" },
-            });
-        }
-
-        const account = await context.queryClient.query({
-            queryKey: ["personalAccount"],
-            queryFn: () => getPersonalAccountFn(),
-            staleTime: "static",
-        });
-
-        if (!account) {
-            throw redirect({
-                to: "/onboarding",
-                search: { redirect: "/profile" },
-            });
-        }
-
+        const { account } = await requireAccount(
+            context.queryClient,
+            "/profile",
+        );
         return { account };
     },
     component: ProfilePage,
 });
 
-function optionalFieldForPatch(
-    current: string | null,
-    next: string,
-): string | null | undefined {
-    const trimmed = next.trim();
-    if (trimmed === "") {
-        return current === null ? undefined : null;
-    }
-    if (trimmed === (current ?? "")) {
-        return undefined;
-    }
-    return trimmed;
-}
-
 function ProfilePage() {
     const { account: loaded } = Route.useRouteContext();
-    const queryClient = useQueryClient();
-    const router = useRouter();
+    const updateMutation = useUpdateProfile();
 
     const [account, setAccount] = useState<PersonalAccount>(loaded);
     const [firstName, setFirstName] = useState(loaded.firstName);
@@ -74,57 +38,14 @@ function ProfilePage() {
         return () => window.clearTimeout(timer);
     }, [saved]);
 
-    const updateMutation = useMutation({
-        mutationFn: (values: {
-            firstName: string;
-            lastName: string;
-            contactEmail: string;
-            bio: string;
-        }): Promise<PersonalAccount> => {
-            const patch: {
-                firstName?: string;
-                lastName?: string;
-                contactEmail?: string | null;
-                bio?: string | null;
-            } = {};
-
-            if (values.firstName !== account.firstName) {
-                patch.firstName = values.firstName;
-            }
-            if (values.lastName !== account.lastName) {
-                patch.lastName = values.lastName;
-            }
-
-            const emailPatch = optionalFieldForPatch(
-                account.contactEmail,
-                values.contactEmail,
-            );
-            if (emailPatch !== undefined) {
-                patch.contactEmail = emailPatch;
-            }
-
-            const bioPatch = optionalFieldForPatch(account.bio, values.bio);
-            if (bioPatch !== undefined) {
-                patch.bio = bioPatch;
-            }
-
-            if (Object.keys(patch).length === 0) {
-                return Promise.resolve(account);
-            }
-
-            return updatePersonalAccountFn({ data: patch });
-        },
-        onSuccess: async (next: PersonalAccount) => {
-            setAccount(next);
-            queryClient.setQueryData(["personalAccount"], next);
-            await router.invalidate();
-            setFirstName(next.firstName);
-            setLastName(next.lastName);
-            setContactEmail(next.contactEmail ?? "");
-            setBio(next.bio ?? "");
-            setSaved(true);
-        },
-    });
+    const showSaved = (next: PersonalAccount) => {
+        setAccount(next);
+        setFirstName(next.firstName);
+        setLastName(next.lastName);
+        setContactEmail(next.contactEmail ?? "");
+        setBio(next.bio ?? "");
+        setSaved(true);
+    };
 
     const clearFieldError = (key: string) => {
         setFieldErrors((prev) => {
@@ -155,8 +76,17 @@ function ProfilePage() {
         }
 
         setFieldErrors({});
+
+        const patch = buildProfilePatch(account, parsed.data);
+        if (Object.keys(patch).length === 0) {
+            updateMutation.reset();
+            showSaved(account);
+            return;
+        }
+
         saveInFlight.current = true;
-        updateMutation.mutate(parsed.data, {
+        updateMutation.mutate(patch, {
+            onSuccess: showSaved,
             onSettled: () => {
                 saveInFlight.current = false;
             },

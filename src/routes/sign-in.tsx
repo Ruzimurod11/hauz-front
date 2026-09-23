@@ -1,14 +1,7 @@
-import {
-    createFileRoute,
-    redirect,
-    useNavigate,
-    useRouter,
-} from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { sendOtpFn, verifyOtpFn } from "../lib/auth";
-import { loadCurrentUser } from "../lib/current-user";
-import { getPersonalAccountFn } from "../lib/personal-account";
+import { useSignIn } from "../hooks/use-sign-in";
+import { redirectIfSignedIn } from "../lib/guards";
 import { resolveRedirectPath } from "../lib/redirect";
 import {
     fieldErrorsFromZod,
@@ -27,35 +20,18 @@ export const Route = createFileRoute("/sign-in")({
         redirect:
             typeof search.redirect === "string" ? search.redirect : undefined,
     }),
-    beforeLoad: async ({ context, search }) => {
-        const user = await loadCurrentUser(context.queryClient);
-        if (!user) return;
-
-        await context.queryClient
-            .query({
-                queryKey: ["personalAccount"],
-                queryFn: () => getPersonalAccountFn(),
-            })
-            .catch(() => {});
-        const account = context.queryClient.getQueryData(["personalAccount"]);
-
-        if (!account) {
-            throw redirect({
-                to: "/onboarding",
-                search: { redirect: search.redirect },
-            });
-        }
-
-        throw redirect({ href: resolveRedirectPath(search.redirect) });
-    },
+    beforeLoad: ({ context, search }) =>
+        redirectIfSignedIn(
+            context.queryClient,
+            resolveRedirectPath(search.redirect),
+        ),
     component: SignInPage,
 });
 
 function SignInPage() {
-    const navigate = useNavigate();
     const search = Route.useSearch();
-    const queryClient = useQueryClient();
-    const router = useRouter();
+    const { sendCode: sendOtpMutation, verifyCode: verifyOtpMutation } =
+        useSignIn(search.redirect);
 
     const [step, setStep] = useState<"email" | "code">("email");
     const [email, setEmail] = useState("");
@@ -65,46 +41,6 @@ function SignInPage() {
         {},
     );
 
-    const sendOtpMutation = useMutation({
-        mutationFn: (emailInput: string) =>
-            sendOtpFn({ data: { email: emailInput } }),
-        onSuccess: (res) => {
-            setUserId(res.userId);
-            setStep("code");
-            setFieldErrors({});
-        },
-    });
-
-    const verifyOtpMutation = useMutation({
-        mutationFn: (data: { userId: string; secret: string }) =>
-            verifyOtpFn({ data }),
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-
-            const redirectTo = resolveRedirectPath(search.redirect);
-
-            let account = null;
-            try {
-                account = await getPersonalAccountFn();
-                queryClient.setQueryData(["personalAccount"], account);
-            } catch {
-                queryClient.setQueryData(["personalAccount"], null);
-            }
-
-            await router.invalidate();
-
-            if (!account) {
-                void navigate({
-                    to: "/onboarding",
-                    search: { redirect: redirectTo },
-                });
-                return;
-            }
-
-            void navigate({ href: redirectTo });
-        },
-    });
-
     const handleSendOtp = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const parsed = signInEmailSchema.safeParse({ email });
@@ -113,7 +49,12 @@ function SignInPage() {
             return;
         }
         setFieldErrors({});
-        sendOtpMutation.mutate(parsed.data.email);
+        sendOtpMutation.mutate(parsed.data.email, {
+            onSuccess: (res) => {
+                setUserId(res.userId);
+                setStep("code");
+            },
+        });
     };
 
     const handleVerifyOtp = (e: React.SyntheticEvent) => {

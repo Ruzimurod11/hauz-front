@@ -1,40 +1,22 @@
-import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { logoutFn } from "../lib/auth";
-import { currentUserQuery } from "../lib/current-user";
-import { getPersonalAccountFn } from "../lib/personal-account";
+import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useLogout } from "../hooks/use-logout";
+import { currentUserQuery, personalAccountQuery } from "../lib/queries";
 import "./Header.css";
 
 export function Header() {
-    const navigate = useNavigate();
-    const router = useRouter();
-    const queryClient = useQueryClient();
-
     const { data: user } = useQuery({
         ...currentUserQuery,
         staleTime: 1000 * 60,
     });
 
     const { data: personalAccount } = useQuery({
-        queryKey: ["personalAccount"],
-        queryFn: () => getPersonalAccountFn(),
+        ...personalAccountQuery,
         enabled: !!user,
         staleTime: 1000 * 60,
     });
 
-    const logoutMutation = useMutation({
-        mutationFn: () => logoutFn(),
-        onSuccess: async () => {
-            queryClient.setQueryData(["currentUser"], null);
-            queryClient.setQueryData(["personalAccount"], null);
-            await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-            await queryClient.invalidateQueries({
-                queryKey: ["personalAccount"],
-            });
-            await router.invalidate();
-            void navigate({ to: "/sign-in" });
-        },
-    });
+    const logoutMutation = useLogout();
 
     const displayName =
         personalAccount?.firstName || user?.email || "Signed in";

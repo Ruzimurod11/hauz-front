@@ -90,6 +90,11 @@ src/
   routes/profile.tsx          view/edit personal account
   lib/auth.ts                 OTP, session cookie, current user, logout
   lib/personal-account.ts     Function executions (GET/POST/PATCH)
+  lib/queries.ts              query keys and options, loader helpers
+  lib/guards.ts               beforeLoad redirects (signed in, onboarded)
+  lib/profile-patch.ts        builds the PATCH body from the profile form
+  lib/redirect.ts             same-origin check for ?redirect=
+  hooks/                      useSignIn, useCreateAccount, useUpdateProfile, useLogout
   components/header.tsx       Sign in | firstName + Log out
 functions/personal-account/   the Function (unchanged)
 appwrite.config.json          database, table and Function definitions

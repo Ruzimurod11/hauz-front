@@ -1,17 +1,8 @@
-import {
-    createFileRoute,
-    redirect,
-    useNavigate,
-    useRouter,
-} from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { loadCurrentUser } from "../lib/current-user";
-import {
-    createPersonalAccountFn,
-    getPersonalAccountFn,
-    type PersonalRole,
-} from "../lib/personal-account";
+import { useCreateAccount } from "../hooks/use-create-account";
+import { requireNoAccount } from "../lib/guards";
+import type { PersonalRole } from "../lib/personal-account";
 import { resolveRedirectPath } from "../lib/redirect";
 import {
     fieldErrorsFromZod,
@@ -30,37 +21,17 @@ export const Route = createFileRoute("/onboarding")({
             typeof search.redirect === "string" ? search.redirect : undefined,
     }),
     beforeLoad: async ({ context, search }) => {
-        const user = await loadCurrentUser(context.queryClient);
-
-        if (!user) {
-            throw redirect({
-                to: "/sign-in",
-                search: {
-                    redirect: resolveRedirectPath(search.redirect),
-                },
-            });
-        }
-
-        await context.queryClient
-            .query({
-                queryKey: ["personalAccount"],
-                queryFn: () => getPersonalAccountFn(),
-            })
-            .catch(() => {});
-        const account = context.queryClient.getQueryData(["personalAccount"]);
-
-        if (account) {
-            throw redirect({ href: resolveRedirectPath(search.redirect) });
-        }
+        await requireNoAccount(
+            context.queryClient,
+            resolveRedirectPath(search.redirect),
+        );
     },
     component: OnboardingPage,
 });
 
 function OnboardingPage() {
-    const navigate = useNavigate();
-    const router = useRouter();
     const search = Route.useSearch();
-    const queryClient = useQueryClient();
+    const createMutation = useCreateAccount(search.redirect);
 
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
@@ -69,22 +40,6 @@ function OnboardingPage() {
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>(
         {},
     );
-
-    const createMutation = useMutation({
-        mutationFn: (data: {
-            firstName: string;
-            lastName: string;
-            role: PersonalRole;
-        }) => createPersonalAccountFn({ data }),
-        onSuccess: async (account) => {
-            queryClient.setQueryData(["personalAccount"], account);
-            await queryClient.invalidateQueries({
-                queryKey: ["personalAccount"],
-            });
-            await router.invalidate();
-            void navigate({ href: resolveRedirectPath(search.redirect) });
-        },
-    });
 
     const clearFieldError = (key: string) => {
         setFieldErrors((prev) => {
