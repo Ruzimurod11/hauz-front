@@ -106,6 +106,7 @@ Other scripts:
 ```bash
 npm run build       production build
 npm run typecheck   tsc --noEmit
+npm test            unit tests (redirect check, profile patch, input schemas)
 npm run appwrite    the Appwrite CLI, scoped to this project's config
 ```
 

@@ -8,6 +8,8 @@
 
 **Layers.** Server functions in `lib/auth.ts` and `lib/personal-account.ts` are the API; there is no HTTP client, because nothing calls Appwrite from the browser. `lib/queries.ts` owns the query keys, `lib/guards.ts` the `beforeLoad` redirects, and `hooks/` the mutations with their cache updates and navigation. Pages keep only form state and markup.
 
+**Validation at every edge.** Forms use Zod for inline messages. Server functions are public endpoints, so each parses its input again with a stricter schema: an unknown field such as `role` or a user id is rejected. The Function validates a third time. Function errors reach the person as plain messages; the details go to the server log.
+
 **Routing.** After OTP we GET the account: 404 goes to `/onboarding` (keeping `redirect`), otherwise to `redirect` or `/profile`. A guest opening `/profile` goes to `/sign-in?redirect=/profile`.
 
 **Header first paint.** The root loader loads the user and account into the Query cache on the server, so a hard refresh renders the first name with no "Sign in" flash.
@@ -28,9 +30,9 @@
 
 ## Setup (Appwrite CLI)
 
-`npx appwrite login` failed: the CLI issued an 8-character device code, but the browser page accepts 6, so Continue said "invalid or expired". HAUZ confirmed an API key with extra scopes is fine, so I ran `appwrite client --key ...` and `npm run appwrite:push` with `databases.*`, `tables.*`, `columns.*`, `indexes.*`, `functions.*` and `rules.*` added.
+`npx appwrite login` failed: the CLI issued an 8-character device code, but the browser page accepts 6. HAUZ confirmed an API key with extra deploy scopes is fine, so I pushed with `appwrite client --key ...` and `npm run appwrite:push`.
 
-CLI 27.3.0 still creates and deletes columns through the legacy `collections` endpoints, which need `collections.write`, a scope the Console no longer offers. I created the four columns whose types differed (`appwrite_user_id`, `first_name`, `last_name`, `bio`) and the unique index with `appwrite tablesdb`, as defined in `appwrite.config.json`. Push then reports the tables up to date and deploys the Function. The app itself needs only the README scopes.
+CLI 27.3.0 still edits columns through the legacy `collections` endpoints, which need `collections.write`, a scope the Console no longer offers. I created the four columns whose types differed, and the unique index, with `appwrite tablesdb` exactly as in `appwrite.config.json`. Push then reports the tables up to date and deploys the Function. The app itself needs only the README scopes.
 
 ## If this went to production
 
@@ -38,4 +40,4 @@ CLI 27.3.0 still creates and deletes columns through the legacy `collections` en
 - Map the Function's `issues` onto form fields.
 - `__Host-` cookie prefix, CSRF protection for cookie-authenticated mutations, shorter sessions with refresh.
 - Rate-limit OTP sends and add a resend cooldown.
-- End-to-end tests for guest to sign-in to onboarding to profile, and for clearing an optional field.
+- Unit tests cover the redirect check, the profile patch and the input schemas (`npm test`). Next: end-to-end tests for guest to sign-in to onboarding to profile, and for clearing an optional field.
