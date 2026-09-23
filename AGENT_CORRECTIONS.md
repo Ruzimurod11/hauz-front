@@ -18,12 +18,12 @@ The agent treated `currentUser` as a client-only query. On hard refresh the Head
 
 Commit: [`11fb14d`](https://github.com/Ruzimurod11/hauz-front/commit/11fb14d) — `fix: hydrate currentUser on SSR to eliminate header layout flash on hard refresh`
 
-## 3. Header used Appwrite user fields instead of Personal Account first name
+## 3. Open redirect through a backslash after sign-in
 
-Early Header code showed `user.name` / `user.email` from the Appwrite Account. The brief asks for the person’s **first name** from the Personal Account (after onboarding). Email as a permanent Header label was wrong once the account exists.
+The brief says to send people to whatever page `redirect` names. The agent guarded this in `resolveRedirectPath` (added in `d385d75`), but only with string checks: the value had to start with `/`, and not with `//` or contain `://`. `/\evil.com` passes all three. Browsers read `\` as `/`, so that URL becomes `//evil.com`, and a signed-in person was sent to another site.
 
-**Fix:** fetch Personal Account via the Function, hydrate it with the user on SSR, and display `personalAccount.firstName` (email only as a pre-onboarding fallback).
+**Fix:** reject any value containing `\`, then resolve it with `new URL()` against a fixed base and accept it only if the origin is unchanged. Absolute URLs, `//host`, `/\host` and `javascript:` all fall back to `/profile`, while normal paths such as `/profile?tab=1#x` pass through.
 
-Commit: [`d385d75`](https://github.com/Ruzimurod11/hauz-front/commit/d385d75) — `feat: add personal account onboarding and profile via Appwrite Function`
+Commit: [`acf4be3`](https://github.com/Ruzimurod11/hauz-front/commit/acf4be3) — `fix: reject backslash and cross-origin values in the post-sign-in redirect`
 
 The prompts from that session are in `AGENT_PROMPTS.md`.
