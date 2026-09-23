@@ -20,7 +20,11 @@
 
 README asks for `npx appwrite login` then `npm run appwrite:push`. Device authorization is currently broken on Appwrite Cloud's side: the CLI issues an **8-character** `user_code`, but `https://appwrite.io/oauth2/device` only shows a **6-character** input, truncates the code, and Continue returns "invalid or expired". That is not fixable from this repo.
 
-Because of that, the schema in `appwrite.config.json` was applied via the **Console UI** (same end state as `appwrite push table`): database `main`, table `personal_accounts`, columns and unique index as in the config. The Function was deployed when CLI login was unavailable. Runtime API key scopes stay as in the README (`sessions.write`, `users.read`, `users.write`, `execution.write`) — no extra scopes required for the app itself.
+I asked HAUZ, and they said either path is fine: official login, or pushing with an API key that has extra scopes. I pushed with the key (`appwrite client --key ...`, then `npm run appwrite:push`) after adding `databases.*`, `tables.*`, `columns.*`, `indexes.*`, `functions.*` and `rules.*` to it.
+
+CLI 27.3.0 still calls the legacy `/v1/databases/.../collections/.../attributes` endpoints when it creates or deletes a column, and those need `collections.write`, a scope the current Console no longer offers. So I created the four mismatched columns (`appwrite_user_id`, `first_name`, `last_name`, `bio`) and the unique index with `appwrite tablesdb create-string-column` / `create-index`, exactly as defined in `appwrite.config.json`. After that `npm run appwrite:push` reports the tables as up to date and deploys the Function.
+
+The app itself only needs the README scopes (`sessions.write`, `users.read`, `users.write`, `execution.write`). The extra deploy scopes can be removed from the key afterwards.
 
 ## If this went to production
 
