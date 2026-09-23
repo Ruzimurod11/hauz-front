@@ -147,6 +147,9 @@ function SignInPage() {
                     <div className="form-field">
                         <label className="form-label" htmlFor="sign-in-email">
                             Email
+                            <span className="form-required" aria-hidden="true">
+                                *
+                            </span>
                         </label>
                         <FormTextInput
                             id="sign-in-email"
@@ -190,6 +193,9 @@ function SignInPage() {
                     <div className="form-field">
                         <label className="form-label" htmlFor="sign-in-code">
                             Code
+                            <span className="form-required" aria-hidden="true">
+                                *
+                            </span>
                         </label>
                         <FormTextInput
                             id="sign-in-code"

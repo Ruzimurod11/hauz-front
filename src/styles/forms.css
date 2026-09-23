@@ -49,6 +49,11 @@
     margin-bottom: 4px;
 }
 
+.form-required {
+    margin-left: 2px;
+    color: #c0392b;
+}
+
 .form-input {
     display: block;
     width: 100%;

@@ -131,6 +131,9 @@ function OnboardingPage() {
                 <div className="form-field">
                     <label className="form-label" htmlFor="onboarding-first-name">
                         First name
+                        <span className="form-required" aria-hidden="true">
+                            *
+                        </span>
                     </label>
                     <FormTextInput
                         id="onboarding-first-name"
@@ -152,6 +155,9 @@ function OnboardingPage() {
                 <div className="form-field">
                     <label className="form-label" htmlFor="onboarding-last-name">
                         Last name
+                        <span className="form-required" aria-hidden="true">
+                            *
+                        </span>
                     </label>
                     <FormTextInput
                         id="onboarding-last-name"
@@ -171,7 +177,12 @@ function OnboardingPage() {
                 </div>
 
                 <fieldset className="form-fieldset">
-                    <legend className="form-legend">Role</legend>
+                    <legend className="form-legend">
+                        Role
+                        <span className="form-required" aria-hidden="true">
+                            *
+                        </span>
+                    </legend>
                     <label className="form-radio">
                         <input
                             type="radio"

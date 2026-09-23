@@ -198,6 +198,9 @@ function ProfilePage() {
                 <div className="form-field">
                     <label className="form-label" htmlFor="profile-first-name">
                         First name
+                        <span className="form-required" aria-hidden="true">
+                            *
+                        </span>
                     </label>
                     <FormTextInput
                         id="profile-first-name"
@@ -219,6 +222,9 @@ function ProfilePage() {
                 <div className="form-field">
                     <label className="form-label" htmlFor="profile-last-name">
                         Last name
+                        <span className="form-required" aria-hidden="true">
+                            *
+                        </span>
                     </label>
                     <FormTextInput
                         id="profile-last-name"
