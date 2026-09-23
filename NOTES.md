@@ -2,41 +2,39 @@
 
 ## Decisions
 
-**Session secret stays in an HTTP-only cookie.** OTP verification creates the Appwrite session on the server and stores only `session.secret` in `appwrite_session`, with the same expiry as the Appwrite session. Browser JS never sees it, and the API key never leaves the server. All Appwrite Account and Function calls go through TanStack Start server functions that read that cookie.
+**Session in an HTTP-only cookie.** OTP verification creates the Appwrite session on the server and stores only `session.secret` in `appwrite_session`, expiring with the session. Browser JS never sees it or the API key. Every Appwrite call goes through a server function that reads the cookie.
 
-**Personal Account only through the Function.** The web app never opens the `personal_accounts` table. Get, create and update call `functions.createExecution` with the caller's session, so Appwrite sets `x-appwrite-user-id`.
+**Personal Account only through the Function.** The app calls `functions.createExecution` with the caller's session, so Appwrite sets `x-appwrite-user-id`. It never touches `personal_accounts` directly.
 
-**Post-sign-in routing.** After OTP we GET the personal account. A 404 sends the person to `/onboarding`, keeping `redirect`. Otherwise they go to `redirect`, or `/profile` by default. A guest opening `/profile` goes to `/sign-in?redirect=/profile`.
+**Routing.** After OTP we GET the account: 404 goes to `/onboarding` (keeping `redirect`), otherwise to `redirect` or `/profile`. A guest opening `/profile` goes to `/sign-in?redirect=/profile`.
 
-**Header first paint.** The root loader loads `currentUser` and `personalAccount` into the Query cache on the server, so a hard refresh renders the first name (or the email before onboarding) with no flash of "Sign in".
+**Header first paint.** The root loader loads the user and account into the Query cache on the server, so a hard refresh renders the first name with no "Sign in" flash.
 
-**Current user failure.** As the brief asks, any failure loading the current user deletes the cookie and shows the person as signed out.
+**Current user failure.** As the brief asks, any failure deletes the cookie and shows the person as signed out.
 
-**Role is fixed.** Onboarding sets it. The profile page shows it read-only and never sends it. `role` is not in the Function's PATCH schema, so a request that includes it has the field dropped.
+**Role is fixed.** The profile shows it read-only and never sends it. `role` is not in the Function's PATCH schema, so it would be dropped anyway.
 
-**Clearing optional fields.** Emptying contact email or bio sends `null`, which the Function stores as a removed value. Unchanged fields are left out of the PATCH.
+**Clearing optional fields.** Emptying contact email or bio sends `null`, and unchanged fields are left out of the PATCH.
 
-**Double submit.** Onboarding's Continue is disabled while the request runs. The unique index on `appwrite_user_id` still makes a raced second POST return the existing row. Profile Save has the same guard.
-
-**Validation.** Forms use Zod on the client with inline messages and required markers. The Function validates again.
+**Double submit.** Onboarding and profile ignore a second submit while the first runs, using a ref because `isPending` only reaches the button on the next render. If two POSTs still race, the unique index on `appwrite_user_id` makes the second return the existing row.
 
 ## Disagreements with the brief
 
-**"Send people to whatever page the `redirect` query parameter names."** Taken literally that is an open redirect. Only same-origin paths are accepted: absolute URLs, `//host`, and backslash tricks such as `/\evil.com` (which browsers read as `//evil.com`) fall back to `/profile`.
+**"Send people to whatever page `redirect` names."** Literally, that is an open redirect. Only same-origin paths are accepted. Absolute URLs, `//host` and `/\evil.com` (which browsers read as `//evil.com`) fall back to `/profile`.
 
-**"The profile form should send the signed-in user's id."** I did not do this. The Function ignores the body for identity and trusts only `x-appwrite-user-id`. A client-chosen id would be ignored at best and invite attempts to edit someone else's profile at worst. The session is enough.
+**"The profile form should send the signed-in user's id."** Not done. The Function trusts only `x-appwrite-user-id`, so a client-chosen id would be ignored at best and invite editing someone else's profile at worst.
 
 ## Setup (Appwrite CLI)
 
-`npx appwrite login` did not work: the CLI issued an 8-character device code, but `https://appwrite.io/oauth2/device` accepts only 6 characters, so Continue answered "invalid or expired". I asked HAUZ, and they said either path is fine: official login, or an API key with extra scopes. I used the key (`appwrite client --key ...`, then `npm run appwrite:push`) with `databases.*`, `tables.*`, `columns.*`, `indexes.*`, `functions.*` and `rules.*` added.
+`npx appwrite login` failed: the CLI issued an 8-character device code, but the browser page accepts 6, so Continue said "invalid or expired". HAUZ confirmed an API key with extra scopes is fine, so I ran `appwrite client --key ...` and `npm run appwrite:push` with `databases.*`, `tables.*`, `columns.*`, `indexes.*`, `functions.*` and `rules.*` added.
 
-CLI 27.3.0 still calls the legacy `/v1/databases/.../collections/.../attributes` endpoints to create or delete a column. Those need `collections.write`, which the current Console no longer offers. So I created the four columns whose types differed from the config (`appwrite_user_id`, `first_name`, `last_name`, `bio`) and the unique index with `appwrite tablesdb create-string-column` and `create-index`, as defined in `appwrite.config.json`. After that `npm run appwrite:push` reports the tables up to date and deploys the Function. The app itself needs only the README scopes, so the extra ones can be removed from the key.
+CLI 27.3.0 still creates and deletes columns through the legacy `collections` endpoints, which need `collections.write`, a scope the Console no longer offers. I created the four columns whose types differed (`appwrite_user_id`, `first_name`, `last_name`, `bio`) and the unique index with `appwrite tablesdb`, as defined in `appwrite.config.json`. Push then reports the tables up to date and deploys the Function. The app itself needs only the README scopes.
 
 ## If this went to production
 
-- Delete the cookie only on a real 401, and keep it on network or 5xx errors, so a laptop waking up does not sign people out.
-- A shared auth and account guard instead of repeating `beforeLoad` logic in each route.
-- Map the Function's `issues` onto form fields instead of one error line.
-- `__Host-` cookie prefix, a CSRF strategy for cookie-authenticated mutations, and a shorter session with refresh.
-- Rate-limit OTP sends and add a resend cooldown in the UI.
+- Delete the cookie only on a real 401, so a network blip after a laptop wakes does not sign people out.
+- One shared auth and account guard instead of repeating `beforeLoad` in each route.
+- Map the Function's `issues` onto form fields.
+- `__Host-` cookie prefix, CSRF protection for cookie-authenticated mutations, shorter sessions with refresh.
+- Rate-limit OTP sends and add a resend cooldown.
 - End-to-end tests for guest to sign-in to onboarding to profile, and for clearing an optional field.

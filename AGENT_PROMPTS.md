@@ -121,3 +121,31 @@ If I deploy this to Vercel now, will the APIs work? Does the brief say to deploy
 ## 27
 
 In `functions/src` every function is given as `.js`. Ideally, shouldn't those be `.ts`?
+
+## 28
+
+Going by `TASK.md`, are all the tasks done? Can I send it to HR?
+
+## 29
+
+If it contradicts the brief, why did we write it? Remove the parts that contradict it from the code too.
+
+## 30
+
+HAUZ answered my setup question: both options are fine. So we already did the second one? Then let's finish it: push with the API key.
+
+## 31
+
+They said to create it this way, so let's create it this way. (After the push stopped on `collections.write`.)
+
+## 32
+
+Put a `*` next to every required label, for example First name, so it is clear the field is required.
+
+## 33
+
+Everything works. Commit, and write the final state into `NOTES.md`.
+
+## 34
+
+Check it all once more, carefully. Is everything in the task done properly?
