@@ -12,7 +12,7 @@
 
 **Routing.** After OTP we GET the account: 404 goes to `/onboarding` (keeping `redirect`), otherwise to `redirect` or `/profile`. A guest opening `/profile` goes to `/sign-in?redirect=/profile`.
 
-**Header first paint.** The root loader loads the user and account into the Query cache on the server, so a hard refresh renders the first name with no "Sign in" flash.
+**Header first paint.** The root loader loads the user and account into the Query cache on the server, so a hard refresh renders the first name with no "Sign in" flash. The starter created the `QueryClient` at module scope, which on the server is one cache for every request: one person's name and account could render in another's page. It is now created inside `getRouter`, once per request. The server returns only the user's id and email, since that is serialized into the HTML.
 
 **Current user failure.** As the brief asks, any failure deletes the cookie and shows the person as signed out.
 

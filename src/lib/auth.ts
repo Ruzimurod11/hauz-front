@@ -40,16 +40,22 @@ export const verifyOtpFn = createServerFn({ method: "POST" })
         return { success: true };
     });
 
-/** The signed-in Appwrite user, or null. */
+export type CurrentUser = { id: string; email: string };
+
+/**
+ * The signed-in person, or null. Only what the UI needs: this is serialized
+ * into the SSR HTML, and the full Appwrite user carries prefs, labels and
+ * targets that the page has no use for.
+ */
 export const getCurrentUserFn = createServerFn({ method: "GET" }).handler(
-    async () => {
+    async (): Promise<CurrentUser | null> => {
         const sessionSecret = getCookie(SESSION_COOKIE);
         if (!sessionSecret) return null;
 
         try {
             const { account } = createSessionClient(sessionSecret);
             const user = await account.get();
-            return user;
+            return { id: user.$id, email: user.email };
         } catch (error) {
             // Any failure loading the user ends the session. A later request
             // must not reuse a cookie we could not verify.
